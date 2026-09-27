@@ -1,7 +1,9 @@
+import os
 import re
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from . import auth, models, schemas
@@ -15,10 +17,13 @@ def initialize_database():
     try:
         admin = db.query(models.User).filter(models.User.username == "admin").first()
         if not admin:
+            admin_password = os.getenv("ADMIN_PASSWORD")
+            if not admin_password and os.getenv("ENVIRONMENT", "development").lower() == "production":
+                raise RuntimeError("ADMIN_PASSWORD must be configured before first production startup")
             admin = models.User(
                 username="admin",
                 email="admin@school.com",
-                hashed_password=auth.get_password_hash("admin123"),
+                hashed_password=auth.get_password_hash(admin_password or "admin123"),
                 role="admin",
             )
             db.add(admin)
@@ -81,11 +86,21 @@ app = FastAPI(title="Student Management System", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if origin.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/")
+def root():
+    return {
+        "name": "Student Management System API",
+        "status": "running",
+        "docs": "/docs",
+        "health": "/api/health",
+    }
 
 
 def get_db():
@@ -98,7 +113,12 @@ def get_db():
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok", "message": "Student Management System API is running"}
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Database is unavailable") from exc
+    return {"status": "ok", "database": "connected"}
 
 
 @app.post("/api/auth/register", status_code=status.HTTP_201_CREATED)
@@ -113,7 +133,7 @@ def register_user(payload: schemas.UserCreate, db: Session = Depends(get_db)):
         username=payload.username,
         email=payload.email,
         hashed_password=auth.get_password_hash(payload.password),
-        role=payload.role.lower(),
+        role="student",
     )
     db.add(user)
     db.commit()

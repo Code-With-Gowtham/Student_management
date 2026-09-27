@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import os
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status
@@ -10,7 +11,11 @@ from sqlalchemy.orm import Session
 from . import models, schemas
 from .database import SessionLocal
 
-SECRET_KEY = "student-management-system-secret-key"
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    if os.getenv("ENVIRONMENT", "development").lower() == "production":
+        raise RuntimeError("SECRET_KEY must be configured in production")
+    SECRET_KEY = "development-only-secret-change-me"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 

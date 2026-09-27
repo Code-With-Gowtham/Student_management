@@ -29,6 +29,11 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+Copy `backend/.env.example` to `backend/.env` and configure `DATABASE_URL`.
+For production, also set `SECRET_KEY`, `ADMIN_PASSWORD`, and `CORS_ORIGINS`.
+The API health endpoint is available at `/api/health` and verifies the database
+connection before returning `status: ok`.
+
 ## Run frontend
 
 ```bash
@@ -56,4 +61,9 @@ Only admins can remove students or faculty. Removing a student also removes thei
 attendance records, and marks.
 
 ## Notes
-The backend uses SQLite for a quick local setup. The project architecture is ready for migration to MySQL in a production environment.
+The backend uses SQLite only when `DATABASE_URL` is not configured. The included
+production configuration uses MySQL through `mysql+pymysql`.
+
+The frontend reads `VITE_API_URL` from its environment. Copy
+`frontend/.env.example` to `frontend/.env` for local development, and set it to
+the deployed API URL for a production build.
